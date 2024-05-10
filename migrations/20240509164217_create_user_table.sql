@@ -1,7 +1,7 @@
 -- +goose Up
 create type user_role as enum('user', 'admin');
 
-create table "user" (
+create table users (
     id serial primary key,
     name text not null,
     email text not null,
@@ -13,6 +13,6 @@ create table "user" (
 );
 
 -- +goose Down
-drop table "user";
+drop table users;
 
 drop type user_role;
