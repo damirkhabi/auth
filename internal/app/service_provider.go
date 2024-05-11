@@ -4,9 +4,9 @@ import (
 	"context"
 	"log"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/arifullov/auth/internal/api/user"
+	"github.com/arifullov/auth/internal/client/db"
+	"github.com/arifullov/auth/internal/client/db/pg"
 	"github.com/arifullov/auth/internal/closer"
 	"github.com/arifullov/auth/internal/config"
 	"github.com/arifullov/auth/internal/repository"
@@ -20,7 +20,7 @@ type serviceProvider struct {
 	pgConfig   config.PGConfig
 	grpcConfig config.GRPCConfig
 
-	pgPool         *pgxpool.Pool
+	dbClient       db.Client
 	userRepository repository.UserRepository
 
 	userService service.UserService
@@ -54,28 +54,26 @@ func (s *serviceProvider) GRPCConfig() config.GRPCConfig {
 	return s.grpcConfig
 }
 
-func (s *serviceProvider) PGPool(ctx context.Context) *pgxpool.Pool {
-	if s.pgPool == nil {
-		pgPool, err := pgxpool.New(ctx, s.PGConfig().DSN())
+func (s *serviceProvider) DBClient(ctx context.Context) db.Client {
+	if s.dbClient == nil {
+		cl, err := pg.New(ctx, s.PGConfig().DSN())
 		if err != nil {
-			log.Fatalf("failed db connect: %v", err)
+			log.Fatalf("failed to create db client: %v", err)
 		}
-		if err = pgPool.Ping(ctx); err != nil {
+
+		if err = cl.DB().Ping(ctx); err != nil {
 			log.Fatalf("ping error: %s", err.Error())
 		}
-		closer.Add(func() error {
-			pgPool.Close()
-			return nil
-		})
+		closer.Add(cl.Close)
 
-		s.pgPool = pgPool
+		s.dbClient = cl
 	}
-	return s.pgPool
+	return s.dbClient
 }
 
 func (s *serviceProvider) UserRepository(ctx context.Context) repository.UserRepository {
 	if s.userRepository == nil {
-		s.userRepository = userRepository.NewRepository(s.PGPool(ctx))
+		s.userRepository = userRepository.NewRepository(s.DBClient(ctx))
 	}
 	return s.userRepository
 }

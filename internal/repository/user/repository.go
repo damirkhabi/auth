@@ -8,26 +8,38 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/arifullov/auth/internal/client/db"
 	"github.com/arifullov/auth/internal/model"
 	"github.com/arifullov/auth/internal/repository"
 	"github.com/arifullov/auth/internal/repository/user/converter"
 	modelRepo "github.com/arifullov/auth/internal/repository/user/model"
 )
 
+const (
+	tableName = "users"
+
+	idColumn           = "id"
+	nameColumn         = "name"
+	emailColumn        = "email"
+	roleColumn         = "role"
+	passwordHashColumn = "password_hash"
+	createdAtColumn    = "created_at"
+	updatedAtColumn    = "updated_at"
+)
+
 type repo struct {
-	db *pgxpool.Pool
+	db db.Client
 }
 
-func NewRepository(db *pgxpool.Pool) repository.UserRepository {
+func NewRepository(db db.Client) repository.UserRepository {
 	return &repo{db: db}
 }
 
 func (r *repo) Create(ctx context.Context, user *model.CreateUser) (int64, error) {
-	builderInsert := sq.Insert("users").
+	builderInsert := sq.Insert(tableName).
 		PlaceholderFormat(sq.Dollar).
-		Columns("name", "email", "password_hash", "role", "created_at", "updated_at").
+		Columns(nameColumn, emailColumn, passwordHashColumn, roleColumn, createdAtColumn, updatedAtColumn).
 		Values(user.Name, user.Email, user.PasswordHash, user.Role, user.CreatedAt, user.UpdatedAt).
 		Suffix("RETURNING id")
 
@@ -36,9 +48,14 @@ func (r *repo) Create(ctx context.Context, user *model.CreateUser) (int64, error
 		return 0, err
 	}
 
+	q := db.Query{
+		Name:     "user_repository.Create",
+		QueryRaw: query,
+	}
+
 	var userID int64
 	var pgErr *pgconn.PgError
-	err = r.db.QueryRow(ctx, query, args...).Scan(&userID)
+	err = r.db.DB().QueryRowContext(ctx, q, args...).Scan(&userID)
 	if err != nil && errors.As(err, &pgErr) {
 		if pgErr.Code == "23505" {
 			return 0, model.ErrUserAlreadyExists
@@ -51,20 +68,23 @@ func (r *repo) Create(ctx context.Context, user *model.CreateUser) (int64, error
 }
 
 func (r *repo) Get(ctx context.Context, id int64) (*model.User, error) {
-	builderSelect := sq.Select("id", "name", "email", "role", "created_at", "updated_at").
+	builderSelect := sq.Select(idColumn, nameColumn, emailColumn, roleColumn, createdAtColumn, updatedAtColumn).
 		PlaceholderFormat(sq.Dollar).
-		From("users").
-		Where(sq.Eq{"id": id})
+		From(tableName).
+		Where(sq.Eq{idColumn: id})
 
 	query, args, err := builderSelect.ToSql()
 	if err != nil {
 		return nil, err
 	}
 
+	q := db.Query{
+		Name:     "user_repository.Get",
+		QueryRaw: query,
+	}
+
 	var user modelRepo.User
-	err = r.db.QueryRow(ctx, query, args...).Scan(
-		&user.ID, &user.Name, &user.Email, &user.Role, &user.CreatedAt, &user.UpdatedAt,
-	)
+	err = r.db.DB().ScanOneContext(ctx, &user, q, args...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, model.ErrUserNotFound
 	}
@@ -76,15 +96,15 @@ func (r *repo) Get(ctx context.Context, id int64) (*model.User, error) {
 }
 
 func (r *repo) Update(ctx context.Context, user *model.UpdateUser) error {
-	builderUpdate := sq.Update("users").
+	builderUpdate := sq.Update(tableName).
 		PlaceholderFormat(sq.Dollar).
-		Set("updated_at", time.Now()).
-		Where(sq.Eq{"id": user.ID})
+		Set(updatedAtColumn, time.Now()).
+		Where(sq.Eq{idColumn: user.ID})
 	if user.Name.Valid {
-		builderUpdate = builderUpdate.Set("name", user.Name.String)
+		builderUpdate = builderUpdate.Set(nameColumn, user.Name.String)
 	}
 	if user.Email.Valid {
-		builderUpdate = builderUpdate.Set("email", user.Email.String)
+		builderUpdate = builderUpdate.Set(emailColumn, user.Email.String)
 	}
 
 	query, args, err := builderUpdate.ToSql()
@@ -92,8 +112,13 @@ func (r *repo) Update(ctx context.Context, user *model.UpdateUser) error {
 		return err
 	}
 
+	q := db.Query{
+		Name:     "user_repository.Update",
+		QueryRaw: query,
+	}
+
 	var pgErr *pgconn.PgError
-	res, err := r.db.Exec(ctx, query, args...)
+	res, err := r.db.DB().ExecContext(ctx, q, args...)
 	if err != nil && errors.As(err, &pgErr) {
 		if pgErr.Code == "23505" {
 			return model.ErrUserAlreadyExists
@@ -109,16 +134,21 @@ func (r *repo) Update(ctx context.Context, user *model.UpdateUser) error {
 }
 
 func (r *repo) Delete(ctx context.Context, id int64) error {
-	builderDelete := sq.Delete("users").
+	builderDelete := sq.Delete(tableName).
 		PlaceholderFormat(sq.Dollar).
-		Where(sq.Eq{"id": id})
+		Where(sq.Eq{idColumn: id})
 
 	query, args, err := builderDelete.ToSql()
 	if err != nil {
 		return err
 	}
 
-	res, err := r.db.Exec(ctx, query, args...)
+	q := db.Query{
+		Name:     "user_repository.Delete",
+		QueryRaw: query,
+	}
+
+	res, err := r.db.DB().ExecContext(ctx, q, args...)
 	if err != nil {
 		return err
 	}
