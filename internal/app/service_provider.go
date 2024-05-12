@@ -7,6 +7,7 @@ import (
 	"github.com/arifullov/auth/internal/api/user"
 	"github.com/arifullov/auth/internal/client/db"
 	"github.com/arifullov/auth/internal/client/db/pg"
+	"github.com/arifullov/auth/internal/client/db/transaction"
 	"github.com/arifullov/auth/internal/closer"
 	"github.com/arifullov/auth/internal/config"
 	"github.com/arifullov/auth/internal/repository"
@@ -21,6 +22,7 @@ type serviceProvider struct {
 	grpcConfig config.GRPCConfig
 
 	dbClient       db.Client
+	txManager      db.TxManager
 	userRepository repository.UserRepository
 
 	userService service.UserService
@@ -78,9 +80,19 @@ func (s *serviceProvider) UserRepository(ctx context.Context) repository.UserRep
 	return s.userRepository
 }
 
+func (s *serviceProvider) TxManager(ctx context.Context) db.TxManager {
+	if s.txManager == nil {
+		s.txManager = transaction.NewTransactionManager(s.DBClient(ctx).DB())
+	}
+	return s.txManager
+}
+
 func (s *serviceProvider) UserService(ctx context.Context) service.UserService {
 	if s.userService == nil {
-		s.userService = userService.NewUserService(s.UserRepository(ctx))
+		s.userService = userService.NewUserService(
+			s.UserRepository(ctx),
+			s.TxManager(ctx),
+		)
 	}
 	return s.userService
 }
