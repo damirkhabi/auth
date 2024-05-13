@@ -11,6 +11,7 @@ install-deps:
 	GOBIN=$(LOCAL_BIN) go install -mod=mod google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 	GOBIN=$(LOCAL_BIN) go install github.com/pressly/goose/v3/cmd/goose@v3.20.0
 	GOBIN=$(LOCAL_BIN) go install github.com/gojuno/minimock/v3/cmd/minimock@v3.3.2
+	GOBIN=$(LOCAL_BIN) go install github.com/envoyproxy/protoc-gen-validate@v1.0.4
 
 get-deps:
 	go get -u google.golang.org/protobuf/cmd/protoc-gen-go
@@ -21,12 +22,22 @@ generate:
 
 generate-user-api:
 	mkdir -p pkg/user_v1
-	protoc --proto_path api/user_v1 \
+	protoc --proto_path api/user_v1 --proto_path vendor.protogen \
 	--go_out=pkg/user_v1 --go_opt=paths=source_relative \
 	--plugin=protoc-gen-go=bin/protoc-gen-go \
 	--go-grpc_out=pkg/user_v1 --go-grpc_opt=paths=source_relative \
 	--plugin=protoc-gen-go-grpc=bin/protoc-gen-go-grpc \
+	--validate_out lang=go:pkg/user_v1 --validate_opt=paths=source_relative \
+	--plugin=protoc-gen-validate=bin/protoc-gen-validate \
 	api/user_v1/user.proto
+
+vendor-proto:
+		@if [ ! -d vendor.protogen/validate ]; then \
+			mkdir -p vendor.protogen/validate &&\
+			git clone https://github.com/envoyproxy/protoc-gen-validate vendor.protogen/protoc-gen-validate &&\
+			mv vendor.protogen/protoc-gen-validate/validate/*.proto vendor.protogen/validate &&\
+			rm -rf vendor.protogen/protoc-gen-validate ;\
+		fi
 
 local-migration-status:
 	${LOCAL_BIN}/goose -dir ${LOCAL_MIGRATION_DIR} postgres ${LOCAL_MIGRATION_DSN} status -v

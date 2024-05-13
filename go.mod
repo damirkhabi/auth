@@ -5,6 +5,7 @@ go 1.22
 require (
 	github.com/Masterminds/squirrel v1.5.4
 	github.com/brianvoe/gofakeit/v7 v7.0.3
+	github.com/envoyproxy/protoc-gen-validate v1.0.4
 	github.com/georgysavva/scany/v2 v2.1.3
 	github.com/gojuno/minimock/v3 v3.3.2
 	github.com/jackc/pgx/v5 v5.5.5
