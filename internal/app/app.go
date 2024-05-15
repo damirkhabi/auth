@@ -12,7 +12,7 @@ import (
 	"github.com/rakyll/statik/fs"
 	"github.com/rs/cors"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/arifullov/auth/internal/closer"
@@ -105,13 +105,8 @@ func (a *App) initServiceProvider(_ context.Context) error {
 }
 
 func (a *App) initGRPCServer(ctx context.Context) error {
-	creds, err := credentials.NewServerTLSFromFile("service.pem", "service.key")
-	if err != nil {
-		return err
-	}
-
 	a.grpcServer = grpc.NewServer(
-		grpc.Creds(creds),
+		grpc.Creds(insecure.NewCredentials()),
 		grpc.UnaryInterceptor(interceptor.ValidateInterceptor),
 	)
 	reflection.Register(a.grpcServer)
@@ -121,16 +116,12 @@ func (a *App) initGRPCServer(ctx context.Context) error {
 
 func (a *App) initHTTPServer(ctx context.Context) error {
 	mux := runtime.NewServeMux()
-	creds, err := credentials.NewClientTLSFromFile("service.pem", "")
-	if err != nil {
-		return err
-	}
 
 	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(creds),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
-	err = desc.RegisterUserV1HandlerFromEndpoint(ctx, mux, a.serviceProvider.GRPCConfig().Address(), opts)
+	err := desc.RegisterUserV1HandlerFromEndpoint(ctx, mux, a.serviceProvider.GRPCConfig().Address(), opts)
 	if err != nil {
 		return err
 	}
