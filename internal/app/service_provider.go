@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 
+	"github.com/arifullov/auth/internal/api/access"
+	"github.com/arifullov/auth/internal/api/auth"
 	"github.com/arifullov/auth/internal/api/user"
 	"github.com/arifullov/auth/internal/client/db"
 	"github.com/arifullov/auth/internal/client/db/pg"
@@ -13,8 +15,13 @@ import (
 	"github.com/arifullov/auth/internal/repository"
 	"github.com/arifullov/auth/internal/service"
 
+	accessRepository "github.com/arifullov/auth/internal/repository/access"
 	userRepository "github.com/arifullov/auth/internal/repository/user"
 	userService "github.com/arifullov/auth/internal/service/user"
+
+	accessService "github.com/arifullov/auth/internal/service/access"
+
+	authService "github.com/arifullov/auth/internal/service/auth"
 )
 
 type serviceProvider struct {
@@ -22,14 +29,20 @@ type serviceProvider struct {
 	grpcConfig    config.GRPCConfig
 	httpConfig    config.HTTPConfig
 	swaggerConfig config.SwaggerConfig
+	tokenConfig   config.TokenConfig
 
-	dbClient       db.Client
-	txManager      db.TxManager
-	userRepository repository.UserRepository
+	dbClient         db.Client
+	txManager        db.TxManager
+	userRepository   repository.UserRepository
+	accessRepository repository.AccessRepository
 
-	userService service.UserService
+	userService   service.UserService
+	accessService service.AccessService
+	authService   service.AuthService
 
-	userImpl *user.Implementation
+	userImpl  *user.Implementation
+	authImpl  *auth.Implementation
+	accessImp *access.Implementation
 }
 
 func newServiceProvider() *serviceProvider {
@@ -82,6 +95,19 @@ func (s *serviceProvider) SwaggerConfig() config.SwaggerConfig {
 	return s.swaggerConfig
 }
 
+func (s *serviceProvider) TokenConfig() config.TokenConfig {
+	if s.tokenConfig == nil {
+		cfg, err := config.NewTokenConfig()
+		if err != nil {
+			log.Fatalf("failed to get token config: %s", err.Error())
+		}
+
+		s.tokenConfig = cfg
+	}
+
+	return s.tokenConfig
+}
+
 func (s *serviceProvider) DBClient(ctx context.Context) db.Client {
 	if s.dbClient == nil {
 		cl, err := pg.New(ctx, s.PGConfig().DSN())
@@ -106,11 +132,39 @@ func (s *serviceProvider) UserRepository(ctx context.Context) repository.UserRep
 	return s.userRepository
 }
 
+func (s *serviceProvider) AccessRepository(ctx context.Context) repository.AccessRepository {
+	if s.accessRepository == nil {
+		s.accessRepository = accessRepository.NewRepository(s.DBClient(ctx))
+	}
+	return s.accessRepository
+}
+
 func (s *serviceProvider) TxManager(ctx context.Context) db.TxManager {
 	if s.txManager == nil {
 		s.txManager = transaction.NewTransactionManager(s.DBClient(ctx).DB())
 	}
 	return s.txManager
+}
+
+func (s *serviceProvider) AccessService(ctx context.Context) service.AccessService {
+	if s.accessService == nil {
+		s.accessService = accessService.NewAccessService(
+			s.AccessRepository(ctx),
+			s.TokenConfig().AccessTokenSecretKey(),
+		)
+	}
+	return s.accessService
+}
+
+func (s *serviceProvider) AuthService(ctx context.Context) service.AuthService {
+	if s.authService == nil {
+		s.authService = authService.NewAuthService(
+			s.UserRepository(ctx),
+			s.TxManager(ctx),
+			s.TokenConfig(),
+		)
+	}
+	return s.authService
 }
 
 func (s *serviceProvider) UserService(ctx context.Context) service.UserService {
@@ -128,4 +182,18 @@ func (s *serviceProvider) UserImpl(ctx context.Context) *user.Implementation {
 		s.userImpl = user.NewImplementation(s.UserService(ctx))
 	}
 	return s.userImpl
+}
+
+func (s *serviceProvider) AccessImpl(ctx context.Context) *access.Implementation {
+	if s.accessImp == nil {
+		s.accessImp = access.NewImplementation(s.AccessService(ctx))
+	}
+	return s.accessImp
+}
+
+func (s *serviceProvider) AuthImpl(ctx context.Context) *auth.Implementation {
+	if s.authImpl == nil {
+		s.authImpl = auth.NewImplementation(s.AuthService(ctx))
+	}
+	return s.authImpl
 }

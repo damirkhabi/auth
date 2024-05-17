@@ -18,7 +18,9 @@ import (
 	"github.com/arifullov/auth/internal/closer"
 	"github.com/arifullov/auth/internal/config"
 	"github.com/arifullov/auth/internal/interceptor"
-	desc "github.com/arifullov/auth/pkg/user_v1"
+	descAccess "github.com/arifullov/auth/pkg/access_v1"
+	descAuth "github.com/arifullov/auth/pkg/auth_v1"
+	descUser "github.com/arifullov/auth/pkg/user_v1"
 	_ "github.com/arifullov/auth/statik"
 )
 
@@ -110,7 +112,9 @@ func (a *App) initGRPCServer(ctx context.Context) error {
 		grpc.UnaryInterceptor(interceptor.ValidateInterceptor),
 	)
 	reflection.Register(a.grpcServer)
-	desc.RegisterUserV1Server(a.grpcServer, a.serviceProvider.UserImpl(ctx))
+	descUser.RegisterUserV1Server(a.grpcServer, a.serviceProvider.UserImpl(ctx))
+	descAccess.RegisterAccessV1Server(a.grpcServer, a.serviceProvider.AccessImpl(ctx))
+	descAuth.RegisterAuthV1Server(a.grpcServer, a.serviceProvider.AuthImpl(ctx))
 	return nil
 }
 
@@ -121,7 +125,7 @@ func (a *App) initHTTPServer(ctx context.Context) error {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
-	err := desc.RegisterUserV1HandlerFromEndpoint(ctx, mux, a.serviceProvider.GRPCConfig().Address(), opts)
+	err := descUser.RegisterUserV1HandlerFromEndpoint(ctx, mux, a.serviceProvider.GRPCConfig().Address(), opts)
 	if err != nil {
 		return err
 	}

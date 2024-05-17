@@ -95,6 +95,34 @@ func (r *repo) Get(ctx context.Context, id int64) (*model.User, error) {
 	return converter.ToUserFromRepo(user), nil
 }
 
+func (r *repo) GetByEmail(ctx context.Context, email string) (*model.User, error) {
+	builderSelect := sq.Select(idColumn, nameColumn, emailColumn, roleColumn, passwordHashColumn, createdAtColumn, updatedAtColumn).
+		PlaceholderFormat(sq.Dollar).
+		From(tableName).
+		Where(sq.Eq{emailColumn: email})
+
+	query, args, err := builderSelect.ToSql()
+	if err != nil {
+		return nil, err
+	}
+
+	q := db.Query{
+		Name:     "user_repository.GetByEmail",
+		QueryRaw: query,
+	}
+
+	var user modelRepo.User
+	err = r.db.DB().ScanOneContext(ctx, &user, q, args...)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, model.ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return converter.ToUserFromRepo(user), nil
+}
+
 func (r *repo) Update(ctx context.Context, user *model.UpdateUser) error {
 	builderUpdate := sq.Update(tableName).
 		PlaceholderFormat(sq.Dollar).
