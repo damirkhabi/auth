@@ -57,13 +57,13 @@ func Reset() {
 
 // Debug logs the provided arguments at DebugLevel.
 // Spaces are added between arguments when neither is a string.
-func Debug(args ...interface{}) {
+func Debug(args ...any) {
 	slogger.Debug(args...)
 }
 
 // Debugf formats the message according to the format specifier
 // and logs it at DebugLevel.
-func Debugf(template string, args ...interface{}) {
+func Debugf(template string, args ...any) {
 	slogger.Debugf(template, args...)
 }
 
@@ -73,79 +73,79 @@ func Debugf(template string, args ...interface{}) {
 // When debug-level logging is disabled, this is much faster than
 //
 //	s.With(keysAndValues).Debug(msg)
-func Debugw(msg string, keysAndValues ...interface{}) {
+func Debugw(msg string, keysAndValues ...any) {
 	slogger.Debugw(msg, keysAndValues...)
 }
 
 // Info logs the provided arguments at InfoLevel.
 // Spaces are added between arguments when neither is a string.
-func Info(args ...interface{}) {
+func Info(args ...any) {
 	slogger.Info(args...)
 }
 
 // Infof formats the message according to the format specifier
 // and logs it at InfoLevel.
-func Infof(template string, args ...interface{}) {
+func Infof(template string, args ...any) {
 	slogger.Infof(template, args...)
 }
 
 // Infow logs a message with some additional context. The variadic key-value
 // pairs are treated as they are in With.
-func Infow(msg string, keysAndValues ...interface{}) {
+func Infow(msg string, keysAndValues ...any) {
 	slogger.Infow(msg, keysAndValues...)
 }
 
 // Warn logs the provided arguments at WarnLevel.
 // Spaces are added between arguments when neither is a string.
-func Warn(args ...interface{}) {
+func Warn(args ...any) {
 	slogger.Warn(args...)
 }
 
 // Warnf formats the message according to the format specifier
 // and logs it at WarnLevel.
-func Warnf(template string, args ...interface{}) {
+func Warnf(template string, args ...any) {
 	slogger.Warnf(template, args...)
 }
 
 // Warnw logs a message with some additional context. The variadic key-value
 // pairs are treated as they are in With.
-func Warnw(msg string, keysAndValues ...interface{}) {
+func Warnw(msg string, keysAndValues ...any) {
 	slogger.Warnw(msg, keysAndValues...)
 }
 
 // Error logs the provided arguments at ErrorLevel.
 // Spaces are added between arguments when neither is a string.
-func Error(args ...interface{}) {
+func Error(args ...any) {
 	slogger.Error(args...)
 }
 
 // Errorf formats the message according to the format specifier
 // and logs it at ErrorLevel.
-func Errorf(template string, args ...interface{}) {
+func Errorf(template string, args ...any) {
 	slogger.Errorf(template, args...)
 }
 
 // Errorw logs a message with some additional context. The variadic key-value
 // pairs are treated as they are in With.
-func Errorw(msg string, keysAndValues ...interface{}) {
+func Errorw(msg string, keysAndValues ...any) {
 	slogger.Errorw(msg, keysAndValues...)
 }
 
 // Fatal constructs a message with the provided arguments and calls os.Exit.
 // Spaces are added between arguments when neither is a string.
-func Fatal(args ...interface{}) {
+func Fatal(args ...any) {
 	slogger.Fatal(args...)
 }
 
 // Fatalf formats the message according to the format specifier
 // and calls os.Exit.
-func Fatalf(template string, args ...interface{}) {
+func Fatalf(template string, args ...any) {
 	slogger.Fatalf(template, args...)
 }
 
 // Fatalw logs a message with some additional context, then calls os.Exit. The
 // variadic key-value pairs are treated as they are in With.
-func Fatalw(msg string, keysAndValues ...interface{}) {
+func Fatalw(msg string, keysAndValues ...any) {
 	slogger.Fatalw(msg, keysAndValues...)
 }
 
