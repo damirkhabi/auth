@@ -2,7 +2,6 @@ package pg
 
 import (
 	"context"
-	"log"
 
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/jackc/pgx/v5"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/arifullov/auth/internal/client/db"
 	"github.com/arifullov/auth/internal/client/db/prettier"
+	"github.com/arifullov/auth/internal/logger"
 )
 
 type key string
@@ -46,17 +46,17 @@ func (p *pg) ScanAllContext(ctx context.Context, dest any, q db.Query, args ...a
 }
 
 func (p *pg) ExecContext(ctx context.Context, q db.Query, arguments ...any) (pgconn.CommandTag, error) {
-	logQuery(ctx, q, arguments...)
+	logQuery(q, arguments...)
 	return p.txOrDb(ctx).Exec(ctx, q.QueryRaw, arguments...)
 }
 
 func (p *pg) QueryContext(ctx context.Context, q db.Query, args ...any) (pgx.Rows, error) {
-	logQuery(ctx, q, args...)
+	logQuery(q, args...)
 	return p.txOrDb(ctx).Query(ctx, q.QueryRaw, args...)
 }
 
 func (p *pg) QueryRowContext(ctx context.Context, q db.Query, args ...any) pgx.Row {
-	logQuery(ctx, q, args...)
+	logQuery(q, args...)
 	return p.txOrDb(ctx).QueryRow(ctx, q.QueryRaw, args...)
 }
 
@@ -84,11 +84,11 @@ func MakeContextTx(ctx context.Context, tx pgx.Tx) context.Context {
 	return context.WithValue(ctx, TxKey, tx)
 }
 
-func logQuery(ctx context.Context, q db.Query, args ...any) {
+func logQuery(q db.Query, args ...any) {
 	prettyQuery := prettier.Pretty(q.QueryRaw, prettier.PlaceholderDollar, args...)
-	log.Println(
-		ctx,
-		q.Name,
-		prettyQuery,
+	logger.Debugw(
+		"database query",
+		"query_name", q.Name,
+		"query", prettyQuery,
 	)
 }

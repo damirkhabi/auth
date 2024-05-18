@@ -3,12 +3,12 @@ package user
 import (
 	"context"
 	"errors"
-	"log"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/arifullov/auth/internal/converter"
+	"github.com/arifullov/auth/internal/logger"
 	"github.com/arifullov/auth/internal/model"
 	desc "github.com/arifullov/auth/pkg/user_v1"
 )
@@ -25,9 +25,9 @@ func (i *Implementation) Create(ctx context.Context, req *desc.CreateRequest) (*
 		return nil, status.Errorf(codes.AlreadyExists, "user already exists")
 	}
 	if err != nil {
-		log.Printf("failed to insert user: %v", err)
+		logger.Errorf("failed to insert user: %v", err)
 		return nil, status.Errorf(codes.Unavailable, "failed to create user")
 	}
-	log.Printf("inserted user with id: %d", id)
+	logger.Infof("inserted user with id: %d", id)
 	return &desc.CreateResponse{Id: id}, nil
 }

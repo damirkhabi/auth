@@ -1,10 +1,11 @@
 package closer
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"sync"
+
+	"github.com/arifullov/auth/internal/logger"
 )
 
 var globalCloser = New()
@@ -79,7 +80,7 @@ func (c *Closer) CloseAll() {
 
 		for i := 0; i < cap(errs); i++ {
 			if err := <-errs; err != nil {
-				log.Println("error returned from Closer")
+				logger.Info("error returned from Closer")
 			}
 		}
 	})

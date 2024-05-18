@@ -3,11 +3,11 @@ package app
 import (
 	"context"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"sync"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/rakyll/statik/fs"
 	"github.com/rs/cors"
@@ -18,6 +18,7 @@ import (
 	"github.com/arifullov/auth/internal/closer"
 	"github.com/arifullov/auth/internal/config"
 	"github.com/arifullov/auth/internal/interceptor"
+	"github.com/arifullov/auth/internal/logger"
 	descAccess "github.com/arifullov/auth/pkg/access_v1"
 	descAuth "github.com/arifullov/auth/pkg/auth_v1"
 	descUser "github.com/arifullov/auth/pkg/user_v1"
@@ -53,7 +54,7 @@ func (a *App) Run() error {
 		defer wg.Done()
 
 		if err := a.runGRPCServer(); err != nil {
-			log.Fatalf("failed to run grpc server: %v", err)
+			logger.Fatalf("failed to run grpc server: %v", err)
 		}
 	}()
 
@@ -61,7 +62,7 @@ func (a *App) Run() error {
 		defer wg.Done()
 
 		if err := a.runHTTPServer(); err != nil {
-			log.Fatalf("failed to run http server: %v", err)
+			logger.Fatalf("failed to run http server: %v", err)
 		}
 	}()
 
@@ -69,7 +70,7 @@ func (a *App) Run() error {
 		defer wg.Done()
 
 		if err := a.runSwaggerServer(); err != nil {
-			log.Fatalf("failed to run swagger server: %v", err)
+			logger.Fatalf("failed to run swagger server: %v", err)
 		}
 	}()
 
@@ -81,6 +82,7 @@ func (a *App) initDeps(ctx context.Context) error {
 	inits := []func(context.Context) error{
 		a.initConfig,
 		a.initServiceProvider,
+		a.initLogger,
 		a.initGRPCServer,
 		a.initHTTPServer,
 		a.initSwaggerServer,
@@ -107,9 +109,17 @@ func (a *App) initServiceProvider(_ context.Context) error {
 }
 
 func (a *App) initGRPCServer(ctx context.Context) error {
+	opts := []logging.Option{
+		logging.WithLogOnEvents(logging.StartCall, logging.FinishCall),
+		logging.WithDurationField(logging.DurationToDurationField),
+	}
+
 	a.grpcServer = grpc.NewServer(
 		grpc.Creds(insecure.NewCredentials()),
-		grpc.UnaryInterceptor(interceptor.ValidateInterceptor),
+		grpc.ChainUnaryInterceptor(
+			logging.UnaryServerInterceptor(interceptor.InterceptorLogger(logger.GetLogger()), opts...),
+			interceptor.ValidateInterceptor,
+		),
 	)
 	reflection.Register(a.grpcServer)
 	descUser.RegisterUserV1Server(a.grpcServer, a.serviceProvider.UserImpl(ctx))
@@ -162,8 +172,13 @@ func (a *App) initSwaggerServer(_ context.Context) error {
 	return nil
 }
 
+func (a *App) initLogger(_ context.Context) error {
+	cfg := a.serviceProvider.LoggerConfig()
+	return logger.Init(cfg.Level(), cfg.Format())
+}
+
 func (a *App) runGRPCServer() error {
-	log.Printf("GRPC server is running on %s", a.serviceProvider.GRPCConfig().Address())
+	logger.Infof("GRPC server is running on %s", a.serviceProvider.GRPCConfig().Address())
 	lis, err := net.Listen("tcp", a.serviceProvider.GRPCConfig().Address())
 	if err != nil {
 		return err
@@ -176,7 +191,7 @@ func (a *App) runGRPCServer() error {
 }
 
 func (a *App) runHTTPServer() error {
-	log.Printf("HTTP server is running on %s", a.serviceProvider.HTTPConfig().Address())
+	logger.Infof("HTTP server is running on %s", a.serviceProvider.HTTPConfig().Address())
 
 	if err := a.httpServer.ListenAndServe(); err != nil {
 		return err
@@ -185,7 +200,7 @@ func (a *App) runHTTPServer() error {
 }
 
 func (a *App) runSwaggerServer() error {
-	log.Printf("Swagger server is running on %s", a.serviceProvider.SwaggerConfig().Address())
+	logger.Infof("Swagger server is running on %s", a.serviceProvider.SwaggerConfig().Address())
 
 	err := a.swaggerServer.ListenAndServe()
 	if err != nil {
@@ -197,7 +212,7 @@ func (a *App) runSwaggerServer() error {
 
 func serveSwaggerFile(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Serving swagger file: %s", path)
+		logger.Infof("Serving swagger file: %s", path)
 
 		statikFs, err := fs.New()
 		if err != nil {
@@ -205,7 +220,7 @@ func serveSwaggerFile(path string) http.HandlerFunc {
 			return
 		}
 
-		log.Printf("Open swagger file: %s", path)
+		logger.Infof("Open swagger file: %s", path)
 
 		file, err := statikFs.Open(path)
 		if err != nil {
@@ -214,7 +229,7 @@ func serveSwaggerFile(path string) http.HandlerFunc {
 		}
 		defer file.Close()
 
-		log.Printf("Read swagger file: %s", path)
+		logger.Infof("Read swagger file: %s", path)
 
 		content, err := io.ReadAll(file)
 		if err != nil {
@@ -222,7 +237,7 @@ func serveSwaggerFile(path string) http.HandlerFunc {
 			return
 		}
 
-		log.Printf("Write swagger file: %s", path)
+		logger.Infof("Write swagger file: %s", path)
 
 		w.Header().Set("Content-Type", "application/json")
 		_, err = w.Write(content)
@@ -231,6 +246,6 @@ func serveSwaggerFile(path string) http.HandlerFunc {
 			return
 		}
 
-		log.Printf("Served swagger file: %s", path)
+		logger.Infof("Served swagger file: %s", path)
 	}
 }

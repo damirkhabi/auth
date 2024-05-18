@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"log"
 
 	"github.com/arifullov/auth/internal/api/access"
 	"github.com/arifullov/auth/internal/api/auth"
@@ -12,6 +11,7 @@ import (
 	"github.com/arifullov/auth/internal/client/db/transaction"
 	"github.com/arifullov/auth/internal/closer"
 	"github.com/arifullov/auth/internal/config"
+	"github.com/arifullov/auth/internal/logger"
 	"github.com/arifullov/auth/internal/repository"
 	"github.com/arifullov/auth/internal/service"
 
@@ -30,6 +30,7 @@ type serviceProvider struct {
 	httpConfig    config.HTTPConfig
 	swaggerConfig config.SwaggerConfig
 	tokenConfig   config.TokenConfig
+	loggerConfig  config.LoggerConfig
 
 	dbClient         db.Client
 	txManager        db.TxManager
@@ -53,7 +54,7 @@ func (s *serviceProvider) PGConfig() config.PGConfig {
 	if s.pgConfig == nil {
 		pgConfig, err := config.NewPGConfig()
 		if err != nil {
-			log.Fatalf("failed to get pg config: %s", err.Error())
+			logger.Fatalf("failed to get pg config: %s", err.Error())
 		}
 		s.pgConfig = pgConfig
 	}
@@ -64,7 +65,7 @@ func (s *serviceProvider) GRPCConfig() config.GRPCConfig {
 	if s.grpcConfig == nil {
 		grpcConfig, err := config.NewGRPCConfig()
 		if err != nil {
-			log.Fatalf("failed to get grpc config: %s", err.Error())
+			logger.Fatalf("failed to get grpc config: %s", err.Error())
 		}
 		s.grpcConfig = grpcConfig
 	}
@@ -75,7 +76,7 @@ func (s *serviceProvider) HTTPConfig() config.HTTPConfig {
 	if s.httpConfig == nil {
 		httpConfig, err := config.NewHTTPConfig()
 		if err != nil {
-			log.Fatalf("failed to get http config: %s", err.Error())
+			logger.Fatalf("failed to get http config: %s", err.Error())
 		}
 		s.httpConfig = httpConfig
 	}
@@ -86,7 +87,7 @@ func (s *serviceProvider) SwaggerConfig() config.SwaggerConfig {
 	if s.swaggerConfig == nil {
 		cfg, err := config.NewSwaggerConfig()
 		if err != nil {
-			log.Fatalf("failed to get swagger config: %s", err.Error())
+			logger.Fatalf("failed to get swagger config: %s", err.Error())
 		}
 
 		s.swaggerConfig = cfg
@@ -99,7 +100,7 @@ func (s *serviceProvider) TokenConfig() config.TokenConfig {
 	if s.tokenConfig == nil {
 		cfg, err := config.NewTokenConfig()
 		if err != nil {
-			log.Fatalf("failed to get token config: %s", err.Error())
+			logger.Fatalf("failed to get token config: %s", err.Error())
 		}
 
 		s.tokenConfig = cfg
@@ -108,15 +109,28 @@ func (s *serviceProvider) TokenConfig() config.TokenConfig {
 	return s.tokenConfig
 }
 
+func (s *serviceProvider) LoggerConfig() config.LoggerConfig {
+	if s.loggerConfig == nil {
+		cfg, err := config.NewLoggingConfig()
+		if err != nil {
+			logger.Fatalf("failed to get logging config: %s", err.Error())
+		}
+
+		s.loggerConfig = cfg
+	}
+
+	return s.loggerConfig
+}
+
 func (s *serviceProvider) DBClient(ctx context.Context) db.Client {
 	if s.dbClient == nil {
 		cl, err := pg.New(ctx, s.PGConfig().DSN())
 		if err != nil {
-			log.Fatalf("failed to create db client: %v", err)
+			logger.Fatalf("failed to create db client: %v", err)
 		}
 
 		if err = cl.DB().Ping(ctx); err != nil {
-			log.Fatalf("ping error: %s", err.Error())
+			logger.Fatalf("ping error: %s", err.Error())
 		}
 		closer.Add(cl.Close)
 
