@@ -32,6 +32,7 @@ type serviceProvider struct {
 	prometheusConfig config.HTTPConfig
 	tokenConfig      config.TokenConfig
 	loggerConfig     config.LoggerConfig
+	jaegerConfig     config.JaegerConfig
 
 	dbClient         db.Client
 	txManager        db.TxManager
@@ -132,6 +133,17 @@ func (s *serviceProvider) LoggerConfig() config.LoggerConfig {
 	}
 
 	return s.loggerConfig
+}
+
+func (s *serviceProvider) JaegerConfig() config.JaegerConfig {
+	if s.jaegerConfig == nil {
+		cfg, err := config.NewJaegerConfig()
+		if err != nil {
+			logger.Fatalf("failed to get jaeger config: %s", err.Error())
+		}
+		s.jaegerConfig = cfg
+	}
+	return s.jaegerConfig
 }
 
 func (s *serviceProvider) DBClient(ctx context.Context) db.Client {

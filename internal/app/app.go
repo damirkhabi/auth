@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rakyll/statik/fs"
 	"github.com/rs/cors"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
@@ -21,6 +22,7 @@ import (
 	"github.com/arifullov/auth/internal/interceptor"
 	"github.com/arifullov/auth/internal/logger"
 	"github.com/arifullov/auth/internal/metric"
+	"github.com/arifullov/auth/internal/tracing"
 	descAccess "github.com/arifullov/auth/pkg/access_v1"
 	descAuth "github.com/arifullov/auth/pkg/auth_v1"
 	descUser "github.com/arifullov/auth/pkg/user_v1"
@@ -99,6 +101,7 @@ func (a *App) initDeps(ctx context.Context) error {
 		a.initHTTPServer,
 		a.initSwaggerServer,
 		a.initPrometheusServer,
+		a.initTracing,
 	}
 	for _, init := range inits {
 		if err := init(ctx); err != nil {
@@ -134,6 +137,7 @@ func (a *App) initGRPCServer(ctx context.Context) error {
 			interceptor.MetricsInterceptor,
 			interceptor.ValidateInterceptor,
 		),
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 	)
 	reflection.Register(a.grpcServer)
 	descUser.RegisterUserV1Server(a.grpcServer, a.serviceProvider.UserImpl(ctx))
@@ -204,6 +208,14 @@ func (a *App) initLogger(_ context.Context) error {
 
 func (a *App) initMetric(ctx context.Context) error {
 	return metric.Init(ctx)
+}
+
+func (a *App) initTracing(_ context.Context) error {
+	return tracing.Init(
+		a.serviceProvider.JaegerConfig().CollectorEndpoint(),
+		a.serviceProvider.JaegerConfig().ServiceName(),
+		a.serviceProvider.JaegerConfig().DeploymentEnvironment(),
+	)
 }
 
 func (a *App) runGRPCServer() error {
