@@ -22,6 +22,7 @@ import (
 	"github.com/arifullov/auth/internal/interceptor"
 	"github.com/arifullov/auth/internal/logger"
 	"github.com/arifullov/auth/internal/metric"
+	"github.com/arifullov/auth/internal/rate_limiter"
 	"github.com/arifullov/auth/internal/tracing"
 	descAccess "github.com/arifullov/auth/pkg/access_v1"
 	descAuth "github.com/arifullov/auth/pkg/auth_v1"
@@ -130,11 +131,18 @@ func (a *App) initGRPCServer(ctx context.Context) error {
 		logging.WithDurationField(logging.DurationToDurationField),
 	}
 
+	rateLimiter := rate_limiter.NewTokenBucketLimiter(
+		ctx,
+		a.serviceProvider.GRPCConfig().RateLimit(),
+		a.serviceProvider.GRPCConfig().PeriodRateLimit(),
+	)
+
 	a.grpcServer = grpc.NewServer(
 		grpc.Creds(insecure.NewCredentials()),
 		grpc.ChainUnaryInterceptor(
 			logging.UnaryServerInterceptor(interceptor.InterceptorLogger(logger.GetLogger()), opts...),
 			interceptor.MetricsInterceptor,
+			interceptor.NewRateLimiterInterceptor(rateLimiter).Unary,
 			interceptor.ValidateInterceptor,
 		),
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
