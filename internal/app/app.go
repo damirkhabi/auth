@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rakyll/statik/fs"
 	"github.com/rs/cors"
+	"github.com/sony/gobreaker/v2"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -137,11 +138,25 @@ func (a *App) initGRPCServer(ctx context.Context) error {
 		a.serviceProvider.GRPCConfig().PeriodRateLimit(),
 	)
 
+	circuitBreaker := gobreaker.NewCircuitBreaker[any](gobreaker.Settings{
+		Name:        a.serviceProvider.JaegerConfig().ServiceName(),
+		MaxRequests: a.serviceProvider.GRPCConfig().CircuitBreakerMaxRequests(),
+		Timeout:     a.serviceProvider.GRPCConfig().CircuitBreakerTimeout(),
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+			return failureRatio >= a.serviceProvider.GRPCConfig().FailureRatio()
+		},
+		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
+			logger.Errorf("Circuit Breaker: %s, changed from %v, to %v", name, from, to)
+		},
+	})
+
 	a.grpcServer = grpc.NewServer(
 		grpc.Creds(insecure.NewCredentials()),
 		grpc.ChainUnaryInterceptor(
 			logging.UnaryServerInterceptor(interceptor.InterceptorLogger(logger.GetLogger()), opts...),
 			interceptor.MetricsInterceptor,
+			interceptor.NewCircuitBreakerInterceptor(circuitBreaker).Unary,
 			interceptor.NewRateLimiterInterceptor(rateLimiter).Unary,
 			interceptor.ValidateInterceptor,
 		),

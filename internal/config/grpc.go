@@ -15,12 +15,19 @@ const (
 
 	grpcRateLimitEnvName       = "GRPC_RATE_LIMIT"
 	grpcPeriodRateLimitEnvName = "GRPC_PERIOD_RATE_LIMIT"
+
+	grpcCircuitBreakerMaxRequestsEnvName = "GRPC_CIRCUIT_BREAKER_MAX_REQUESTS"
+	grpcCircuitTimeoutEnvName            = "GRPC_CIRCUIT_BREAKER_TIMEOUT"
+	grpcCircuitFailureRatioEnvName       = "GRPC_CIRCUIT_FAILURE_RATIO"
 )
 
 type GRPCConfig interface {
 	Address() string
 	RateLimit() int
 	PeriodRateLimit() time.Duration
+	CircuitBreakerMaxRequests() uint32
+	CircuitBreakerTimeout() time.Duration
+	FailureRatio() float64
 }
 
 type grpcConfig struct {
@@ -29,6 +36,10 @@ type grpcConfig struct {
 
 	rateLimit       int
 	periodRateLimit time.Duration
+
+	circuitBreakerMaxRequests uint32
+	circuitBreakerTimeout     time.Duration
+	failureRatio              float64
 }
 
 func NewGRPCConfig() (GRPCConfig, error) {
@@ -60,11 +71,41 @@ func NewGRPCConfig() (GRPCConfig, error) {
 		return nil, errors.New("invalid period")
 	}
 
+	circuitBreakerMaxRequestsStr := os.Getenv(grpcCircuitBreakerMaxRequestsEnvName)
+	if circuitBreakerMaxRequestsStr == "" {
+		return nil, errors.New("circuit breaker max requests not found")
+	}
+	circuitBreakerMaxRequests, err := strconv.Atoi(circuitBreakerMaxRequestsStr)
+	if err != nil {
+		return nil, errors.New("invalid circuit breaker max requests")
+	}
+
+	circuitTimeoutStr := os.Getenv(grpcCircuitTimeoutEnvName)
+	if circuitTimeoutStr == "" {
+		return nil, errors.New("circuit timeout not found")
+	}
+	circuitTimeout, err := time.ParseDuration(circuitTimeoutStr)
+	if err != nil {
+		return nil, errors.New("invalid circuit timeout")
+	}
+
+	circuitFailureRatioStr := os.Getenv(grpcCircuitFailureRatioEnvName)
+	if circuitFailureRatioStr == "" {
+		return nil, errors.New("circuit failure ratio not found")
+	}
+	circuitFailureRatio, err := strconv.ParseFloat(circuitFailureRatioStr, 64)
+	if err != nil {
+		return nil, errors.New("invalid circuit failure ratio")
+	}
+
 	return &grpcConfig{
-		host:            host,
-		port:            port,
-		rateLimit:       rateLimit,
-		periodRateLimit: period,
+		host:                      host,
+		port:                      port,
+		rateLimit:                 rateLimit,
+		periodRateLimit:           period,
+		circuitBreakerMaxRequests: uint32(circuitBreakerMaxRequests),
+		circuitBreakerTimeout:     circuitTimeout,
+		failureRatio:              circuitFailureRatio,
 	}, nil
 }
 
@@ -78,4 +119,16 @@ func (cfg *grpcConfig) RateLimit() int {
 
 func (cfg *grpcConfig) PeriodRateLimit() time.Duration {
 	return cfg.periodRateLimit
+}
+
+func (cfg *grpcConfig) CircuitBreakerMaxRequests() uint32 {
+	return cfg.circuitBreakerMaxRequests
+}
+
+func (cfg *grpcConfig) CircuitBreakerTimeout() time.Duration {
+	return cfg.circuitBreakerTimeout
+}
+
+func (cfg *grpcConfig) FailureRatio() float64 {
+	return cfg.failureRatio
 }
