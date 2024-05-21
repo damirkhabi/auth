@@ -1,8 +1,10 @@
 package tracing
 
 import (
+	"context"
+
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -10,11 +12,12 @@ import (
 )
 
 func Init(
+	ctx context.Context,
 	collectorEndpoint string,
 	serviceName string,
 	deploymentEnvironment string,
 ) error {
-	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(collectorEndpoint)))
+	exp, err := otlptracegrpc.New(ctx, otlptracegrpc.WithEndpointURL(collectorEndpoint))
 	if err != nil {
 		return err
 	}

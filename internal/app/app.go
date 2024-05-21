@@ -233,8 +233,9 @@ func (a *App) initMetric(ctx context.Context) error {
 	return metric.Init(ctx)
 }
 
-func (a *App) initTracing(_ context.Context) error {
+func (a *App) initTracing(ctx context.Context) error {
 	return tracing.Init(
+		ctx,
 		a.serviceProvider.JaegerConfig().CollectorEndpoint(),
 		a.serviceProvider.JaegerConfig().ServiceName(),
 		a.serviceProvider.JaegerConfig().DeploymentEnvironment(),
