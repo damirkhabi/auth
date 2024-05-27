@@ -3,9 +3,10 @@ package access
 import (
 	"context"
 
-	"github.com/arifullov/auth/internal/model"
 	"github.com/arifullov/auth/internal/repository"
 	"github.com/arifullov/auth/internal/service"
+	"github.com/arifullov/auth/internal/sys"
+	"github.com/arifullov/auth/internal/sys/codes"
 	"github.com/arifullov/auth/internal/utils"
 )
 
@@ -41,5 +42,5 @@ func (s *serv) Check(ctx context.Context, accessToken string, endpointAddress st
 		}
 	}
 
-	return model.ErrAccessDenied
+	return sys.NewCommonError(codes.PermissionDenied, "permission denied")
 }

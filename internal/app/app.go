@@ -154,6 +154,7 @@ func (a *App) initGRPCServer(ctx context.Context) error {
 	a.grpcServer = grpc.NewServer(
 		grpc.Creds(insecure.NewCredentials()),
 		grpc.ChainUnaryInterceptor(
+			interceptor.ErrorCodesInterceptor,
 			logging.UnaryServerInterceptor(interceptor.InterceptorLogger(logger.GetLogger()), opts...),
 			interceptor.MetricsInterceptor,
 			interceptor.NewCircuitBreakerInterceptor(circuitBreaker).Unary,

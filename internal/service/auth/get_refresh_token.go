@@ -3,13 +3,15 @@ package auth
 import (
 	"context"
 
+	"github.com/arifullov/auth/internal/sys"
+	"github.com/arifullov/auth/internal/sys/codes"
 	"github.com/arifullov/auth/internal/utils"
 )
 
 func (s *serv) GetRefreshToken(ctx context.Context, oldRefreshToken string) (string, error) {
 	claims, err := utils.VerifyToken(oldRefreshToken, utils.S2B(s.tokenConfig.RefreshTokenSecretKey()))
 	if err != nil {
-		return "", err
+		return "", sys.NewCommonError(codes.Unauthenticated, err.Error())
 	}
 
 	user, err := s.userRepository.GetByEmail(ctx, claims.Username)

@@ -14,6 +14,8 @@ import (
 	"github.com/arifullov/auth/internal/repository"
 	"github.com/arifullov/auth/internal/repository/user/converter"
 	modelRepo "github.com/arifullov/auth/internal/repository/user/model"
+	"github.com/arifullov/auth/internal/sys"
+	"github.com/arifullov/auth/internal/sys/codes"
 )
 
 const (
@@ -58,7 +60,7 @@ func (r *repo) Create(ctx context.Context, user *model.CreateUser) (int64, error
 	err = r.db.DB().QueryRowContext(ctx, q, args...).Scan(&userID)
 	if err != nil && errors.As(err, &pgErr) {
 		if pgErr.Code == "23505" {
-			return 0, model.ErrUserAlreadyExists
+			return 0, sys.NewCommonError(codes.AlreadyExists, "user already exists")
 		}
 	}
 	if err != nil {
@@ -86,7 +88,7 @@ func (r *repo) Get(ctx context.Context, id int64) (*model.User, error) {
 	var user modelRepo.User
 	err = r.db.DB().ScanOneContext(ctx, &user, q, args...)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, model.ErrUserNotFound
+		return nil, sys.NewCommonError(codes.NotFound, "user not found")
 	}
 	if err != nil {
 		return nil, err
@@ -114,7 +116,7 @@ func (r *repo) GetByEmail(ctx context.Context, email string) (*model.User, error
 	var user modelRepo.User
 	err = r.db.DB().ScanOneContext(ctx, &user, q, args...)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, model.ErrUserNotFound
+		return nil, sys.NewCommonError(codes.NotFound, "user not found")
 	}
 	if err != nil {
 		return nil, err
@@ -149,14 +151,14 @@ func (r *repo) Update(ctx context.Context, user *model.UpdateUser) error {
 	res, err := r.db.DB().ExecContext(ctx, q, args...)
 	if err != nil && errors.As(err, &pgErr) {
 		if pgErr.Code == "23505" {
-			return model.ErrUserAlreadyExists
+			return sys.NewCommonError(codes.AlreadyExists, "user already exists")
 		}
 	}
 	if err != nil {
 		return err
 	}
 	if res.RowsAffected() == 0 {
-		return model.ErrUserNotFound
+		return sys.NewCommonError(codes.NotFound, "user not found")
 	}
 	return nil
 }
@@ -181,7 +183,7 @@ func (r *repo) Delete(ctx context.Context, id int64) error {
 		return err
 	}
 	if res.RowsAffected() == 0 {
-		return model.ErrUserNotFound
+		return sys.NewCommonError(codes.NotFound, "user not found")
 	}
 	return nil
 }

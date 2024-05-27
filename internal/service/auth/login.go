@@ -5,20 +5,22 @@ import (
 	"time"
 
 	"github.com/arifullov/auth/internal/model"
+	"github.com/arifullov/auth/internal/sys"
+	"github.com/arifullov/auth/internal/sys/codes"
 	"github.com/arifullov/auth/internal/utils"
 )
 
 func (s *serv) Login(ctx context.Context, username string, password string) (string, error) {
 	user, err := s.userRepository.GetByEmail(ctx, username)
 	if err != nil {
-		return "", model.ErrUserNotFound
+		return "", err
 	}
 	isPasswordEqual, err := utils.CheckPbkdf2SHA256(password, user.PasswordHash)
 	if err != nil {
 		return "", err
 	}
 	if !isPasswordEqual {
-		return "", model.ErrWrongCredentials
+		return "", sys.NewCommonError(codes.Unauthenticated, "wrong credentials")
 	}
 
 	refreshToken, err := generateRefreshToken(user, utils.S2B(s.tokenConfig.RefreshTokenSecretKey()), s.tokenConfig.RefreshTokenExpiration())

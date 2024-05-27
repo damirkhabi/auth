@@ -10,7 +10,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/arifullov/auth/internal/model"
 	desc "github.com/arifullov/auth/pkg/access_v1"
 )
 
@@ -36,11 +35,8 @@ func (i *Implementation) Check(ctx context.Context, req *desc.CheckRequest) (*em
 	accessToken := strings.TrimPrefix(authHeader[0], authPrefix)
 
 	err := i.accessService.Check(ctx, accessToken, req.GetEndpointAddress())
-	if errors.Is(err, model.ErrAccessDenied) {
-		return nil, status.Errorf(codes.PermissionDenied, "access denied")
-	}
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get accessible roles")
+		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
