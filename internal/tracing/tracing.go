@@ -9,6 +9,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.25.0"
+
+	"github.com/arifullov/auth/internal/closer"
 )
 
 func Init(
@@ -32,5 +34,8 @@ func Init(
 	)
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	closer.Add(func() error {
+		return tp.Shutdown(ctx)
+	})
 	return nil
 }
